@@ -85,6 +85,97 @@ app.prepare().then(async () => {
       console.log(`User ${userId} left conversation ${conversationId}`);
     });
 
+    // Handle sending messages
+    socket.on('send-message', async (data: {
+      conversationId: string;
+      receiverId: string;
+      content: string;
+      mediaUrl?: string;
+      applyTone?: boolean;
+      toneType?: string;
+    }) => {
+      try {
+        // Get sender user
+        const sender = await prisma.user.findUnique({
+          where: { clerkId: userId },
+          select: { id: true, username: true, firstName: true, lastName: true, avatarUrl: true },
+        });
+
+        if (!sender) {
+          socket.emit('message-error', { error: 'User not found' });
+          return;
+        }
+
+        // Apply tone if requested
+        let finalContent = data.content;
+        let originalContent = data.content;
+
+        if (data.applyTone && data.toneType && data.content) {
+          try {
+            const { GoogleGenerativeAI } = await import('@google/generative-ai');
+            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+            const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+
+            const prompt = `Convert the following message to a ${data.toneType} tone. Only return the converted message without any explanations:\n\n${data.content}`;
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            finalContent = response.text().trim();
+          } catch (error) {
+            console.error('Tone conversion error:', error);
+          }
+        }
+
+        // Create message in database
+        const message = await prisma.message.create({
+          data: {
+            conversationId: data.conversationId,
+            senderId: sender.id,
+            receiverId: data.receiverId,
+            content: finalContent,
+            originalContent: originalContent,
+            toneApplied: data.toneType || null,
+            mediaUrl: data.mediaUrl || null,
+          },
+        });
+
+        // Update conversation last message time
+        await prisma.conversation.update({
+          where: { id: data.conversationId },
+          data: { lastMessageAt: new Date() },
+        });
+
+        // Format message for clients
+        const formattedMessage = {
+          id: message.id,
+          conversation_id: message.conversationId,
+          sender_id: message.senderId,
+          receiver_id: message.receiverId,
+          content: message.content,
+          original_content: message.originalContent,
+          tone_applied: message.toneApplied,
+          message_type: message.mediaUrl ? 'image' : 'text',
+          media_url: message.mediaUrl,
+          status: 'sent',
+          is_read: false,
+          read_at: null,
+          created_at: message.createdAt,
+          updated_at: message.updatedAt,
+        };
+
+        // Emit to sender
+        socket.emit('message-sent', formattedMessage);
+
+        // Emit to receiver
+        io.to(`user:${data.receiverId}`).emit('new-message', formattedMessage);
+
+        // Emit to conversation room
+        socket.to(`conversation:${data.conversationId}`).emit('new-message', formattedMessage);
+      } catch (error) {
+        console.error('Send message error:', error);
+        socket.emit('message-error', { error: 'Failed to send message' });
+      }
+    });
+
     // Handle typing indicators
     socket.on('typing', ({ conversationId, isTyping }: { conversationId: string; isTyping: boolean }) => {
       socket.to(`conversation:${conversationId}`).emit('user-typing', {
