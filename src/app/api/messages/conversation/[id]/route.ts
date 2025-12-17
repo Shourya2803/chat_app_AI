@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = auth();
@@ -18,6 +18,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { id } = await params;
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
@@ -34,7 +35,7 @@ export async function GET(
     // Verify user is part of this conversation
     const conversation = await prisma.conversation.findFirst({
       where: {
-        id: params.id,
+        id: id,
         OR: [
           { user1Id: currentUser.id },
           { user2Id: currentUser.id },
@@ -49,7 +50,7 @@ export async function GET(
     // Get messages with sender info
     const messages = await prisma.message.findMany({
       where: {
-        conversationId: params.id,
+        conversationId: id,
       },
       include: {
         sender: {
@@ -103,7 +104,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = auth();
@@ -111,6 +112,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { id } = await params;
     const body = await request.json();
     const { content, imageUrl, receiverId, tone } = body;
 
@@ -162,7 +164,7 @@ export async function POST(
     // Create message
     const message = await prisma.message.create({
       data: {
-        conversationId: params.id,
+        conversationId: id,
         senderId: currentUser.id,
         receiverId: receiver.id,
         content: finalContent,
@@ -185,7 +187,7 @@ export async function POST(
 
     // Update conversation last message time
     await prisma.conversation.update({
-      where: { id: params.id },
+      where: { id: id },
       data: { lastMessageAt: new Date() },
     });
 
