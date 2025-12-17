@@ -95,6 +95,9 @@ app.prepare().then(async () => {
       toneType?: string;
     }) => {
       try {
+        console.log('🔥 send-message event triggered');
+        console.log('📩 Full payload received:', JSON.stringify(data, null, 2));
+
         // Get sender user
         const sender = await prisma.user.findUnique({
           where: { clerkId: userId },
@@ -102,47 +105,62 @@ app.prepare().then(async () => {
         });
 
         if (!sender) {
+          console.error('❌ Sender not found:', userId);
           socket.emit('message-error', { error: 'User not found' });
           return;
         }
+
+        console.log('✅ Sender found:', sender.id);
 
         // Apply tone if requested
         let finalContent = data.content;
         let originalContent = data.content;
         let appliedTone = null;
 
-        console.log('Message received:', {
-          hasContent: !!data.content,
-          applyTone: data.applyTone,
-          toneType: data.toneType,
-          contentLength: data.content?.length
-        });
+        console.log('📝 Message content:', data.content);
+        console.log('🎨 Apply tone?', data.applyTone, 'Type:', data.toneType);
 
         if (data.applyTone && data.toneType && data.content && data.content.trim()) {
-          console.log('Applying tone conversion:', data.toneType);
+          console.log('🤖 Applying tone conversion:', data.toneType);
+          console.log('📝 Raw content:', data.content);
           try {
             const { aiService } = await import('./src/lib/server/services/ai.service');
-            const result = await aiService.convertTone(data.content, data.toneType as any);
+            
+            // Add timeout for Gemini API
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Gemini API timeout after 10s')), 10000)
+            );
+            
+            const result = await Promise.race([
+              aiService.convertTone(data.content, data.toneType as any),
+              timeoutPromise
+            ]) as any;
+            
+            console.log('🤖 AI result:', result);
             
             if (result.success && result.convertedText) {
               finalContent = result.convertedText;
               appliedTone = data.toneType;
-              console.log('✓ Tone conversion successful:', {
-                original: data.content,
-                converted: finalContent,
-                tone: data.toneType
-              });
+              console.log('✅ Tone conversion successful!');
+              console.log('   Original:', data.content);
+              console.log('   Converted:', finalContent);
             } else {
-              console.error('✗ Tone conversion failed:', result.error);
+              console.error('❌ Tone conversion failed:', result.error);
+              console.log('⚠️ Using original message');
             }
-          } catch (error) {
-            console.error('✗ Tone conversion error:', error);
+          } catch (error: any) {
+            console.error('❌ Tone conversion error:', error.message);
+            console.log('⚠️ Using original message due to error');
           }
         } else {
-          console.log('Skipping tone conversion - conditions not met');
+          console.log('⏭️ Skipping tone conversion - conditions not met');
+          console.log('   applyTone:', data.applyTone);
+          console.log('   toneType:', data.toneType);
+          console.log('   hasContent:', !!data.content);
         }
 
         // Create message in database
+        console.log('💾 Saving to database...');
         const message = await prisma.message.create({
           data: {
             conversationId: data.conversationId,
@@ -154,6 +172,7 @@ app.prepare().then(async () => {
             mediaUrl: data.mediaUrl || null,
           },
         });
+        console.log('✅ Message saved to DB:', message.id);
 
         // Update conversation last message time
         await prisma.conversation.update({
@@ -179,16 +198,21 @@ app.prepare().then(async () => {
           updated_at: message.updatedAt,
         };
 
+        console.log('📡 Emitting message to clients...');
         // Emit to sender
         socket.emit('message-sent', formattedMessage);
 
         // Emit to receiver
         io.to(`user:${data.receiverId}`).emit('new-message', formattedMessage);
+        console.log('📤 Sent to receiver:', data.receiverId);
 
         // Emit to conversation room
         socket.to(`conversation:${data.conversationId}`).emit('new-message', formattedMessage);
+        console.log('📤 Broadcast to conversation:', data.conversationId);
+        
+        console.log('✅ Message flow complete!');
       } catch (error) {
-        console.error('Send message error:', error);
+        console.error('❌ Send message error:', error);
         socket.emit('message-error', { error: 'Failed to send message' });
       }
     });

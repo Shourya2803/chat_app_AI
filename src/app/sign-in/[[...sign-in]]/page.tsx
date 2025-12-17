@@ -19,8 +19,7 @@ export default function SignInPage() {
               card: 'shadow-2xl',
             },
           }}
-          signInForceRedirectUrl="/chat"
-          signInFallbackRedirectUrl="/chat"
+          redirectUrl="/chat"
         />
       </div>
     </div>

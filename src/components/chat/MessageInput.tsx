@@ -96,19 +96,17 @@ export default function MessageInput({ conversationId, receiverId }: MessageInpu
       
       if (isVercel) {
         // Use REST API on Vercel (no WebSocket support)
-        console.log('Sending via REST API:', {
-          toneEnabled,
-          selectedTone,
-          willApplyTone: toneEnabled && !!selectedTone
-        });
+        const apiPayload = {
+          content: message.trim() || 'Image',
+          receiverId,
+          tone: toneEnabled && selectedTone ? selectedTone : undefined,
+          imageUrl: mediaUrl,
+        };
+        
+        console.log('Sending via REST API:', apiPayload);
         
         try {
-          const response = await api.post(`/messages/conversation/${conversationId}`, {
-            content: message.trim() || 'Image',
-            receiverId,
-            tone: toneEnabled && selectedTone ? selectedTone : undefined,
-            imageUrl: mediaUrl,
-          });
+          const response = await api.post(`/messages/conversation/${conversationId}`, apiPayload);
 
           if (response.data.success) {
             // Add message to local store immediately
@@ -121,20 +119,18 @@ export default function MessageInput({ conversationId, receiverId }: MessageInpu
         }
       } else {
         // Use Socket.IO when available
-        console.log('Sending via Socket.IO:', {
-          toneEnabled,
-          selectedTone,
-          applyTone: toneEnabled && !!selectedTone
-        });
-        
-        socketService.sendMessage({
+        const messagePayload = {
           receiverId,
           content: message.trim() || 'Image',
           conversationId,
           applyTone: toneEnabled && !!selectedTone,
           toneType: selectedTone || undefined,
           mediaUrl,
-        });
+        };
+        
+        console.log('Sending via Socket.IO:', messagePayload);
+        
+        socketService.sendMessage(messagePayload);
       }
 
       // Clear input

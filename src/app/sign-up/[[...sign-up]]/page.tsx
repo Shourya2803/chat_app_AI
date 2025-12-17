@@ -19,8 +19,7 @@ export default function SignUpPage() {
               card: 'shadow-2xl',
             },
           }}
-          signUpForceRedirectUrl="/chat"
-          signUpFallbackRedirectUrl="/chat"
+          redirectUrl="/chat"
         />
       </div>
     </div>

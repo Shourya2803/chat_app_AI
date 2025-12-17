@@ -90,10 +90,10 @@ export default function MessageList({ messages, loading, currentUserId }: Messag
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                     )}
 
-                    {/* Tone indicator */}
-                    {message.tone_applied && (
+                    {/* Tone indicator (only visible to sender) */}
+                    {isSent && message.tone_applied && (
                       <div className="mt-1 flex items-center gap-1">
-                        <span className={`text-xs ${isSent ? 'text-primary-200' : 'text-gray-500'}`}>
+                        <span className="text-xs text-primary-200">
                           AI: {message.tone_applied}
                         </span>
                       </div>
@@ -116,13 +116,13 @@ export default function MessageList({ messages, loading, currentUserId }: Messag
                     )}
                   </div>
 
-                  {/* Original message preview (if tone was applied) */}
-                  {message.original_content && message.original_content !== message.content && (
+                  {/* Original message preview (only visible to sender) */}
+                  {isSent && message.original_content && message.original_content !== message.content && (
                     <details className="mt-1 cursor-pointer">
-                      <summary className={`text-xs ${isSent ? 'text-primary-300' : 'text-gray-500'}`}>
+                      <summary className="text-xs text-primary-300">
                         View original
                       </summary>
-                      <p className={`text-xs mt-1 italic ${isSent ? 'text-primary-200' : 'text-gray-600 dark:text-gray-400'}`}>
+                      <p className="text-xs mt-1 italic text-primary-200">
                         "{message.original_content}"
                       </p>
                     </details>
