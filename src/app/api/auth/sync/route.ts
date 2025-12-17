@@ -13,25 +13,36 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Sync user to database using Prisma
-    await prisma.user.upsert({
+    // Check if user exists first
+    const existingUser = await prisma.user.findUnique({
       where: { clerkId: userId },
-      update: {
-        email: user.emailAddresses[0]?.emailAddress || '',
-        username: user.username || null,
-        firstName: user.firstName || null,
-        lastName: user.lastName || null,
-        avatarUrl: user.imageUrl || null,
-      },
-      create: {
-        clerkId: userId,
-        email: user.emailAddresses[0]?.emailAddress || '',
-        username: user.username || null,
-        firstName: user.firstName || null,
-        lastName: user.lastName || null,
-        avatarUrl: user.imageUrl || null,
-      },
     });
+
+    if (existingUser) {
+      // Update existing user
+      await prisma.user.update({
+        where: { clerkId: userId },
+        data: {
+          username: user.username || null,
+          firstName: user.firstName || null,
+          lastName: user.lastName || null,
+          avatarUrl: user.imageUrl || null,
+          // Don't update email to avoid constraint conflicts
+        },
+      });
+    } else {
+      // Create new user only if doesn't exist
+      await prisma.user.create({
+        data: {
+          clerkId: userId,
+          email: user.emailAddresses[0]?.emailAddress || '',
+          username: user.username || null,
+          firstName: user.firstName || null,
+          lastName: user.lastName || null,
+          avatarUrl: user.imageUrl || null,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,

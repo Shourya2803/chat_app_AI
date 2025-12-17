@@ -78,10 +78,13 @@ export async function POST(request: NextRequest) {
       data: { conversationId: conversation.id },
       success: true 
     }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create conversation error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        error: 'Internal server error', 
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+      },
       { status: 500 }
     );
   }
