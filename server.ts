@@ -199,14 +199,11 @@ app.prepare().then(async () => {
         };
 
         console.log('📡 Emitting message to clients...');
+        
         // Emit to sender
         socket.emit('message-sent', formattedMessage);
 
-        // Emit to receiver
-        io.to(`user:${data.receiverId}`).emit('new-message', formattedMessage);
-        console.log('📤 Sent to receiver:', data.receiverId);
-
-        // Emit to conversation room
+        // Emit to conversation room (this reaches the receiver)
         socket.to(`conversation:${data.conversationId}`).emit('new-message', formattedMessage);
         console.log('📤 Broadcast to conversation:', data.conversationId);
         
