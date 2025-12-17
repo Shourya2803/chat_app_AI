@@ -83,7 +83,7 @@ export default function ChatWindow() {
 
   return (
     <div
-      className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900"
+      className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 min-h-screen"
     >
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">

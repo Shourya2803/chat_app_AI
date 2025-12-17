@@ -6,6 +6,8 @@ import { MessageQueue } from '@/lib/server/workers/message.queue';
 // Initialize message queue
 const messageQueue = new MessageQueue();
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
