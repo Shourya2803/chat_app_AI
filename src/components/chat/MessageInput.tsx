@@ -91,15 +91,39 @@ export default function MessageInput({ conversationId, receiverId }: MessageInpu
         }
       }
 
-      // Send message via Socket.IO
-      socketService.sendMessage({
-        receiverId,
-        content: message.trim() || 'Image',
-        conversationId,
-        applyTone: toneEnabled && !!selectedTone,
-        toneType: selectedTone || undefined,
-        mediaUrl,
-      });
+      // Try Socket.IO first, fallback to REST API
+      const isVercel = process.env.NEXT_PUBLIC_VERCEL_ENV;
+      
+      if (isVercel) {
+        // Use REST API on Vercel (no WebSocket support)
+        try {
+          const response = await api.post(`/messages/conversation/${conversationId}`, {
+            content: message.trim() || 'Image',
+            receiverId,
+            tone: toneEnabled && selectedTone ? selectedTone : undefined,
+            imageUrl: mediaUrl,
+          });
+
+          if (response.data.success) {
+            // Add message to local store immediately
+            const { useChatStore } = await import('@/store/chatStore');
+            useChatStore.getState().addMessage(response.data.data);
+          }
+        } catch (error) {
+          console.error('Failed to send message via API:', error);
+          throw error;
+        }
+      } else {
+        // Use Socket.IO when available
+        socketService.sendMessage({
+          receiverId,
+          content: message.trim() || 'Image',
+          conversationId,
+          applyTone: toneEnabled && !!selectedTone,
+          toneType: selectedTone || undefined,
+          mediaUrl,
+        });
+      }
 
       // Clear input
       setMessage('');

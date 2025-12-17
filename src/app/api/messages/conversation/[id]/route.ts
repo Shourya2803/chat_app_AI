@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs';
-import { getDb } from '@/lib/server/database/client';
+import prisma from '@/lib/server/database/prisma';
 import { MessageQueue } from '@/lib/server/workers/message.queue';
 
 // Initialize message queue
@@ -19,27 +19,78 @@ export async function GET(
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = (page - 1) * limit;
+    const offset = parseInt(searchParams.get('offset') || '0');
 
-    const db = await getDb();
-    const result = await db.query(
-      `SELECT m.*, 
-        sender.name as sender_name,
-        sender.avatar_url as sender_avatar
-      FROM messages m
-      JOIN users sender ON m.sender_id = sender.id
-      WHERE m.conversation_id = $1
-      ORDER BY m.created_at DESC
-      LIMIT $2 OFFSET $3`,
-      [params.id, limit, offset]
-    );
+    // Get current user
+    const currentUser = await prisma.user.findUnique({
+      where: { clerkId: userId },
+    });
+
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Verify user is part of this conversation
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: params.id,
+        OR: [
+          { user1Id: currentUser.id },
+          { user2Id: currentUser.id },
+        ],
+      },
+    });
+
+    if (!conversation) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+
+    // Get messages with sender info
+    const messages = await prisma.message.findMany({
+      where: {
+        conversationId: params.id,
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+      take: limit,
+      skip: offset,
+    });
+
+    // Transform to match expected format
+    const formattedMessages = messages.map(msg => ({
+      id: msg.id,
+      conversation_id: msg.conversationId,
+      sender_id: msg.senderId,
+      receiver_id: msg.receiverId,
+      content: msg.content,
+      original_content: msg.originalContent,
+      tone_applied: msg.toneApplied,
+      message_type: msg.mediaUrl ? 'image' : 'text',
+      media_url: msg.mediaUrl,
+      read_at: msg.readAt,
+      created_at: msg.createdAt,
+      sender_name: msg.sender.username || `${msg.sender.firstName} ${msg.sender.lastName}`,
+      sender_avatar: msg.sender.avatarUrl,
+    }));
 
     return NextResponse.json({
-      messages: result.rows.reverse(),
-      page,
-      hasMore: result.rows.length === limit,
+      data: {
+        messages: formattedMessages,
+      },
+      hasMore: messages.length === limit,
     });
   } catch (error) {
     console.error('Get messages error:', error);
@@ -70,21 +121,94 @@ export async function POST(
       );
     }
 
-    // Add message to queue for processing
-    const job = await messageQueue.addMessage({
-      conversationId: params.id,
-      senderId: userId,
-      receiverId,
-      content,
-      mediaUrl: imageUrl,
-      applyTone: !!tone,
-      toneType: tone,
+    // Get current user
+    const currentUser = await prisma.user.findUnique({
+      where: { clerkId: userId },
     });
+
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Get receiver
+    const receiver = await prisma.user.findUnique({
+      where: { id: receiverId },
+    });
+
+    if (!receiver) {
+      return NextResponse.json({ error: 'Receiver not found' }, { status: 404 });
+    }
+
+    // Apply tone if enabled
+    let finalContent = content;
+    let originalContent = content;
+
+    if (tone && content) {
+      try {
+        const { GoogleGenerativeAI } = await import('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+
+        const prompt = `Convert the following message to a ${tone} tone. Only return the converted message without any explanations:\n\n${content}`;
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        finalContent = response.text().trim();
+      } catch (error) {
+        console.error('Tone conversion error:', error);
+        // If tone conversion fails, use original content
+      }
+    }
+
+    // Create message
+    const message = await prisma.message.create({
+      data: {
+        conversationId: params.id,
+        senderId: currentUser.id,
+        receiverId: receiver.id,
+        content: finalContent,
+        originalContent: originalContent,
+        toneApplied: tone || null,
+        mediaUrl: imageUrl || null,
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    // Update conversation last message time
+    await prisma.conversation.update({
+      where: { id: params.id },
+      data: { lastMessageAt: new Date() },
+    });
+
+    // Format response
+    const formattedMessage = {
+      id: message.id,
+      conversation_id: message.conversationId,
+      sender_id: message.senderId,
+      receiver_id: message.receiverId,
+      content: message.content,
+      original_content: message.originalContent,
+      tone_applied: message.toneApplied,
+      message_type: message.mediaUrl ? 'image' : 'text',
+      media_url: message.mediaUrl,
+      read_at: message.readAt,
+      created_at: message.createdAt,
+      sender_name: message.sender.username || `${message.sender.firstName} ${message.sender.lastName}`,
+      sender_avatar: message.sender.avatarUrl,
+    };
 
     return NextResponse.json({
       success: true,
-      jobId: job.id,
-      message: 'Message queued for processing',
+      data: formattedMessage,
     });
   } catch (error) {
     console.error('Send message error:', error);
