@@ -33,6 +33,13 @@ export default function ChatLayout() {
         // Sync user with backend
         await api.post('/auth/sync');
 
+        // Only connect to Socket.IO in development or on platforms that support it
+        const isVercel = process.env.NEXT_PUBLIC_VERCEL_ENV !== undefined;
+        if (isVercel) {
+          console.warn('⚠️ Real-time features disabled on Vercel. Deploy on Railway/Render for WebSocket support.');
+          return;
+        }
+
         // Connect to Socket.IO
         const token = await getToken();
         if (token) {

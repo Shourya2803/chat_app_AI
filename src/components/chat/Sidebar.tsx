@@ -87,6 +87,19 @@ export default function Sidebar() {
     >
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        {/* User Status Bar */}
+        <div className="flex items-center justify-between mb-3 p-2 bg-gray-50 dark:bg-gray-750 rounded-lg">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-xs text-gray-600 dark:text-gray-400">
+              {user?.username || user?.firstName || 'User'} • Online
+            </span>
+          </div>
+          <span className="text-xs text-gray-500 dark:text-gray-500">
+            Active now
+          </span>
+        </div>
+
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-primary-600 dark:text-primary-400 flex items-center gap-2">
             <MessageSquare className="w-6 h-6" />
@@ -134,11 +147,14 @@ export default function Sidebar() {
                     </div>
                     <div className="flex-1">
                       <p className="font-semibold text-gray-900 dark:text-gray-100">
-                        {user.username || `${user.first_name} ${user.last_name}`}
+                        {user.username || `${user.firstName} ${user.lastName}`}
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
                     </div>
-                    <div className={`w-3 h-3 rounded-full ${user.status === 'online' ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 capitalize">{user.status || 'offline'}</span>
+                      <div className={`w-3 h-3 rounded-full ${user.status === 'online' ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -173,9 +189,14 @@ export default function Sidebar() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-1">
-                          <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                            {conv.other_user.username || `${conv.other_user.first_name} ${conv.other_user.last_name}`}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                              {conv.other_user.username || `${conv.other_user.first_name} ${conv.other_user.last_name}`}
+                            </p>
+                            {conv.other_user.status === 'online' && (
+                              <span className="text-xs text-green-600 dark:text-green-400">●</span>
+                            )}
+                          </div>
                           {conv.last_message && (
                             <span className="text-xs text-gray-500 dark:text-gray-400">
                               {format(new Date(conv.last_message.created_at), 'HH:mm')}
