@@ -14,15 +14,19 @@ export async function GET(request: NextRequest) {
 
     const db = await getDb();
     const result = await db.query(
-      `SELECT id, email, name, avatar_url, bio, status 
+      `SELECT id, clerk_id as "clerkId", email, username, first_name as "firstName", 
+              last_name as "lastName", avatar_url as "avatarUrl", status 
        FROM users 
-       WHERE id != $1 
-       AND (name ILIKE $2 OR email ILIKE $2)
+       WHERE clerk_id != $1 
+       AND (username ILIKE $2 OR email ILIKE $2 OR first_name ILIKE $2 OR last_name ILIKE $2)
        LIMIT 20`,
       [userId, `%${query}%`]
     );
 
-    return NextResponse.json({ users: result.rows });
+    return NextResponse.json({ 
+      data: { users: result.rows },
+      success: true 
+    });
   } catch (error) {
     console.error('Search users error:', error);
     return NextResponse.json(
