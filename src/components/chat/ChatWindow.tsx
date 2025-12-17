@@ -17,10 +17,27 @@ export default function ChatWindow() {
   const { activeConversationId, conversations, messages, setMessages, resetUnread } = useChatStore();
   const { toneEnabled, toggleTone } = useUIStore();
   const [loading, setLoading] = useState(false);
+  const [currentDbUserId, setCurrentDbUserId] = useState<string>('');
 
   const activeConversation = conversations.find(
     (c) => c.conversation_id === activeConversationId
   );
+
+  // Get database user ID
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await api.get('/users/me');
+        setCurrentDbUserId(response.data.user.id);
+      } catch (error) {
+        console.error('Failed to fetch current user:', error);
+      }
+    };
+    
+    if (user) {
+      fetchCurrentUser();
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!activeConversationId) return;
@@ -132,7 +149,7 @@ export default function ChatWindow() {
       <MessageList 
         messages={conversationMessages} 
         loading={loading}
-        currentUserId={user?.id || ''}
+        currentUserId={currentDbUserId}
       />
 
       {/* Input */}

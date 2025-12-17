@@ -109,20 +109,37 @@ app.prepare().then(async () => {
         // Apply tone if requested
         let finalContent = data.content;
         let originalContent = data.content;
+        let appliedTone = null;
 
-        if (data.applyTone && data.toneType && data.content) {
+        console.log('Message received:', {
+          hasContent: !!data.content,
+          applyTone: data.applyTone,
+          toneType: data.toneType,
+          contentLength: data.content?.length
+        });
+
+        if (data.applyTone && data.toneType && data.content && data.content.trim()) {
+          console.log('Applying tone conversion:', data.toneType);
           try {
-            const { GoogleGenerativeAI } = await import('@google/generative-ai');
-            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-            const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
-            const prompt = `Convert the following message to a ${data.toneType} tone. Only return the converted message without any explanations:\n\n${data.content}`;
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            finalContent = response.text().trim();
+            const { aiService } = await import('./src/lib/server/services/ai.service');
+            const result = await aiService.convertTone(data.content, data.toneType as any);
+            
+            if (result.success && result.convertedText) {
+              finalContent = result.convertedText;
+              appliedTone = data.toneType;
+              console.log('✓ Tone conversion successful:', {
+                original: data.content,
+                converted: finalContent,
+                tone: data.toneType
+              });
+            } else {
+              console.error('✗ Tone conversion failed:', result.error);
+            }
           } catch (error) {
-            console.error('Tone conversion error:', error);
+            console.error('✗ Tone conversion error:', error);
           }
+        } else {
+          console.log('Skipping tone conversion - conditions not met');
         }
 
         // Create message in database
@@ -133,7 +150,7 @@ app.prepare().then(async () => {
             receiverId: data.receiverId,
             content: finalContent,
             originalContent: originalContent,
-            toneApplied: data.toneType || null,
+            toneApplied: appliedTone,
             mediaUrl: data.mediaUrl || null,
           },
         });

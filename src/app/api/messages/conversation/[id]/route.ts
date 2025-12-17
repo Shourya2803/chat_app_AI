@@ -144,21 +144,37 @@ export async function POST(
     // Apply tone if enabled
     let finalContent = content;
     let originalContent = content;
+    let appliedTone = null;
 
-    if (tone && content) {
+    console.log('API Message received:', {
+      hasContent: !!content,
+      hasTone: !!tone,
+      tone: tone,
+      contentLength: content?.length
+    });
+
+    if (tone && content && content.trim()) {
+      console.log('Applying tone conversion via API:', tone);
       try {
-        const { GoogleGenerativeAI } = await import('@google/generative-ai');
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
-        const prompt = `Convert the following message to a ${tone} tone. Only return the converted message without any explanations:\n\n${content}`;
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        finalContent = response.text().trim();
+        const { aiService } = await import('@/lib/server/services/ai.service');
+        const result = await aiService.convertTone(content, tone);
+        
+        if (result.success && result.convertedText) {
+          finalContent = result.convertedText;
+          appliedTone = tone;
+          console.log('✓ API Tone conversion successful:', {
+            original: content,
+            converted: finalContent,
+            tone
+          });
+        } else {
+          console.error('✗ API Tone conversion failed:', result.error);
+        }
       } catch (error) {
-        console.error('Tone conversion error:', error);
-        // If tone conversion fails, use original content
+        console.error('✗ API Tone conversion error:', error);
       }
+    } else {
+      console.log('Skipping API tone conversion - conditions not met');
     }
 
     // Create message
@@ -169,7 +185,7 @@ export async function POST(
         receiverId: receiver.id,
         content: finalContent,
         originalContent: originalContent,
-        toneApplied: tone || null,
+        toneApplied: appliedTone,
         mediaUrl: imageUrl || null,
       },
       include: {

@@ -96,6 +96,12 @@ export default function MessageInput({ conversationId, receiverId }: MessageInpu
       
       if (isVercel) {
         // Use REST API on Vercel (no WebSocket support)
+        console.log('Sending via REST API:', {
+          toneEnabled,
+          selectedTone,
+          willApplyTone: toneEnabled && !!selectedTone
+        });
+        
         try {
           const response = await api.post(`/messages/conversation/${conversationId}`, {
             content: message.trim() || 'Image',
@@ -115,6 +121,12 @@ export default function MessageInput({ conversationId, receiverId }: MessageInpu
         }
       } else {
         // Use Socket.IO when available
+        console.log('Sending via Socket.IO:', {
+          toneEnabled,
+          selectedTone,
+          applyTone: toneEnabled && !!selectedTone
+        });
+        
         socketService.sendMessage({
           receiverId,
           content: message.trim() || 'Image',

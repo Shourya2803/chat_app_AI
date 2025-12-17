@@ -1,7 +1,7 @@
 'use client';
 
 import { useUIStore, ToneType } from '@/store/uiStore';
-import { Briefcase, Heart, GraduationCap } from 'lucide-react';
+import { Briefcase, Heart, GraduationCap, Sparkles } from 'lucide-react';
 
 const toneOptions: { value: ToneType; label: string; icon: React.ReactNode; description: string }[] = [
   {
@@ -25,16 +25,33 @@ const toneOptions: { value: ToneType; label: string; icon: React.ReactNode; desc
 ];
 
 export default function ToneSelector() {
-  const { selectedTone, setSelectedTone } = useUIStore();
+  const { selectedTone, setSelectedTone, toneEnabled, toggleTone } = useUIStore();
 
   return (
     <div
       className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700"
     >
-      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-        Select AI Tone:
-      </p>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-primary-600" />
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            AI Tone Transformer
+          </p>
+        </div>
+        <button
+          onClick={toggleTone}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            toneEnabled ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              toneEnabled ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
+      </div>
+      <div className={`grid grid-cols-3 gap-2 transition-opacity ${!toneEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
         {toneOptions.map((option) => (
           <button
             key={option.value}
