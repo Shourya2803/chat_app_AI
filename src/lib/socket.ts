@@ -12,34 +12,48 @@ class SocketService {
       return this.socket;
     }
 
-    this.socket = io(WS_URL, {
-      auth: { token },
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: this.maxReconnectAttempts,
-    });
+    try {
+      this.socket = io(WS_URL, {
+        auth: { token },
+        transports: ['polling', 'websocket'], // Try polling first on Vercel
+        reconnection: true,
+        reconnectionDelay: 2000,
+        reconnectionDelayMax: 10000,
+        reconnectionAttempts: 3, // Reduce attempts
+        timeout: 10000,
+      });
 
-    this.socket.on('connect', () => {
-      console.log('✅ Socket connected');
-      this.reconnectAttempts = 0;
-    });
+      this.socket.on('connect', () => {
+        console.log('✅ Socket connected');
+        this.reconnectAttempts = 0;
+      });
 
-    this.socket.on('disconnect', (reason) => {
-      console.log('❌ Socket disconnected:', reason);
-    });
+      this.socket.on('disconnect', (reason) => {
+        console.log('❌ Socket disconnected:', reason);
+        if (reason === 'io server disconnect' || reason === 'transport close') {
+          console.warn('⚠️ WebSocket not available - real-time features disabled');
+        }
+      });
 
-    this.socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
-      this.reconnectAttempts++;
-    });
+      this.socket.on('connect_error', (error) => {
+        console.warn('Socket connection error:', error.message);
+        this.reconnectAttempts++;
+        
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          console.error('⚠️ Unable to establish real-time connection. Real-time features will be unavailable.');
+          this.socket?.close();
+        }
+      });
 
-    this.socket.on('reconnect', (attemptNumber) => {
-      console.log('🔄 Socket reconnected after', attemptNumber, 'attempts');
-    });
+      this.socket.on('reconnect', (attemptNumber) => {
+        console.log('🔄 Socket reconnected after', attemptNumber, 'attempts');
+      });
 
-    return this.socket;
+      return this.socket;
+    } catch (error) {
+      console.error('Failed to initialize socket:', error);
+      throw error;
+    }
   }
 
   disconnect() {

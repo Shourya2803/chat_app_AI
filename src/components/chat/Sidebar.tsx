@@ -20,11 +20,22 @@ export default function Sidebar() {
   const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
+    // Hydrate Zustand store from localStorage
+    useUIStore.persist.rehydrate();
+    
     // Apply theme from localStorage on mount
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    const savedTheme = localStorage.getItem('ui-storage');
     if (savedTheme) {
-      setTheme(savedTheme);
+      try {
+        const parsed = JSON.parse(savedTheme);
+        if (parsed.state?.theme) {
+          setTheme(parsed.state.theme);
+        }
+      } catch (e) {
+        console.error('Failed to parse theme:', e);
+      }
     }
+    
     loadConversations();
   }, []);
 

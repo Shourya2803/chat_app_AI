@@ -26,7 +26,7 @@ interface UIState {
 export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
-      theme: typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+      theme: 'light',
       sidebarOpen: true,
       toneEnabled: false,
       selectedTone: null,
@@ -67,6 +67,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'ui-storage',
+      skipHydration: true,
       partialize: (state) => ({ 
         theme: state.theme,
         toneEnabled: state.toneEnabled,
