@@ -14,12 +14,17 @@ export default function Sidebar() {
   const { user } = useUser();
   const api = useApiClient();
   const { conversations, setConversations, setActiveConversation, activeConversationId, unreadCounts } = useChatStore();
-  const { theme, toggleTheme, sidebarOpen, toggleSidebar } = useUIStore();
+  const { theme, toggleTheme, sidebarOpen, toggleSidebar, setTheme } = useUIStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
+    // Apply theme from localStorage on mount
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
     loadConversations();
   }, []);
 
