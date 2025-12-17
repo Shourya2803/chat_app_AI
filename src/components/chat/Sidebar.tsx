@@ -83,7 +83,7 @@ export default function Sidebar() {
 
   return (
     <div
-      className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shadow-lg lg:shadow-none"
+      className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full overflow-hidden"
     >
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">

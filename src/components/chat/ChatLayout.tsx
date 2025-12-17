@@ -32,15 +32,20 @@ export default function ChatLayout() {
       try {
         // Sync user with backend
         await api.post('/auth/sync');
+        toast.success('Connected to chat server');
 
-        // Only connect to Socket.IO in development or on platforms that support it
-        const isVercel = process.env.NEXT_PUBLIC_VERCEL_ENV !== undefined;
-        if (isVercel) {
+        // Disable Socket.IO on Vercel/serverless environments
+        const isServerless = typeof window !== 'undefined' && (
+          process.env.NEXT_PUBLIC_VERCEL_ENV !== undefined ||
+          window.location.hostname.includes('vercel.app')
+        );
+        
+        if (isServerless) {
           console.warn('⚠️ Real-time features disabled on Vercel. Deploy on Railway/Render for WebSocket support.');
           return;
         }
 
-        // Connect to Socket.IO
+        // Connect to Socket.IO only on platforms with custom server support
         const token = await getToken();
         if (token) {
           const socket = socketService.connect(token);
@@ -85,9 +90,10 @@ export default function ChatLayout() {
             socketService.disconnect();
           };
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to initialize app:', error);
-        toast.error('Failed to connect to chat server');
+        const errorMsg = error?.response?.data?.error || error?.message || 'Failed to connect to chat server';
+        toast.error(errorMsg);
       }
     };
 
@@ -95,7 +101,7 @@ export default function ChatLayout() {
   }, [user, getToken, api]);
 
   return (
-    <div className="flex h-screen bg-white dark:bg-gray-900">
+    <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900">
       <Sidebar />
       <ChatWindow />
     </div>

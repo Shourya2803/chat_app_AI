@@ -37,10 +37,13 @@ export async function POST() {
       success: true,
       message: 'User synced successfully',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Auth sync error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }
